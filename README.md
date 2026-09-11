@@ -2,11 +2,12 @@
 
 Alissa Rivero
 
-This repository has the three required pieces:
+This repository has four files:
 
-1. A **Python data analysis script** — [`question1.py`](question1.py) (same analysis in [`question1.ipynb`](question1.ipynb))
-2. This **README**
-3. A **Rust Jupyter notebook** — [`question2.ipynb`](question2.ipynb)
+1. A **Python data analysis script** — [`question1.py`](question1.py)
+2. A **Python Jupyter notebook** (same analysis in [`question1.ipynb`](question1.ipynb))
+3. This **README**
+4. A **Rust Jupyter notebook** — [`question2.ipynb`](question2.ipynb)
 
 The last section of the Python script (and notebook) also times **Pandas vs Polars** on the same pipeline.
 
@@ -70,7 +71,7 @@ Or open `question1.ipynb` and run all cells. The CSV files must stay in this sam
 
 ## Question 2: Rust notebook
 
-[`question2.ipynb`](question2.ipynb) is the **same analysis as the Python notebook**, rewritten in Rust. It loads `ASD meta abundance.csv`, inspects it, splits ASD vs control, groups by genus, builds good/bad scores, fits the same two OLS models, and draws the boxplots. Ownership is used so it **works**: clone when two names need the list, borrow (`&`) to look without taking, and drop readers before a write.
+[`question2.ipynb`](question2.ipynb) is the **same analysis as the Python notebook**, rewritten in Rust, with the same section titles, dataset abstract, and interpretation write-up. It loads `ASD meta abundance.csv`, inspects it, splits ASD vs control, groups by genus, builds good/bad scores, fits the same two OLS models, and draws the boxplots. Ownership is used so it **works**: clone when two names need the list, borrow (`&`) to look without taking, and drop readers before a write.
 
 1. Install the Rust Jupyter kernel (`evcxr_jupyter --install`) if it is not already there.
 2. Open `question2.ipynb` and pick **Rust** (not Python). If `let` is a `SyntaxError`, you are still on Python.
