@@ -70,11 +70,11 @@ Or open `question1.ipynb` and run all cells. The CSV files must stay in this sam
 
 ## Question 2: Rust notebook
 
-[`question2.ipynb`](question2.ipynb) is the **same analysis as the Python notebook**, rewritten in Rust. It loads `ASD meta abundance.csv`, inspects it, splits ASD vs control, groups by genus, builds good/bad scores, fits the same two OLS models, and draws the boxplots. Ownership experiments are mixed in: move vs clone, borrow vs take, and a read+write that is supposed to fail.
+[`question2.ipynb`](question2.ipynb) is the **same analysis as the Python notebook**, rewritten in Rust. It loads `ASD meta abundance.csv`, inspects it, splits ASD vs control, groups by genus, builds good/bad scores, fits the same two OLS models, and draws the boxplots. Ownership is used so it **works**: clone when two names need the list, borrow (`&`) to look without taking, and drop readers before a write.
 
 1. Install the Rust Jupyter kernel (`evcxr_jupyter --install`) if it is not already there.
 2. Open `question2.ipynb` and pick **Rust** (not Python). If `let` is a `SyntaxError`, you are still on Python.
-3. Run all cells from top to bottom. A few cells are supposed to fail — that is the ownership point.
+3. Run all cells from top to bottom. Every cell is meant to compile.
 
 ## Files
 
