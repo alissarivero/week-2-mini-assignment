@@ -14,6 +14,7 @@ import statsmodels.api as sm
 
 DATA_PATH = Path(__file__).resolve().parent / "ASD meta abundance.csv"
 
+# Load and inspect: shape, dtypes, summary stats, and missing values.
 df = pd.read_csv(DATA_PATH)
 print("=== Load and inspect ===")
 print(df.head())
@@ -22,11 +23,13 @@ print(df.describe())
 print("Missing values per column:")
 print(df.isnull().sum())
 
+# A* columns are ASD samples; B* columns are typically developing controls.
 autism_cols = [c for c in df.columns if c.startswith("A")]
 control_cols = [c for c in df.columns if c.startswith("B")]
 print(f"\nASD samples: {len(autism_cols)}")
 print(f"Control samples: {len(control_cols)}")
 
+# Long format so groupby() can summarize by group (ASD vs Control) and by genus.
 long_df = df.melt(
     id_vars="Taxonomy",
     var_name="sample",
@@ -48,6 +51,7 @@ genus_stats = (
 )
 print(genus_stats.head(15))
 
+# Relative abundance: each sample's counts divided by that sample's total reads.
 rel = df.set_index("Taxonomy")
 rel = rel.div(rel.sum(axis=0), axis=1)
 
@@ -78,6 +82,7 @@ cols = ["ASD", "Control", "percent_diff", "abs_percent_diff"]
 print("\n=== Side-by-side ASD vs Control (percent of reads) ===")
 print(comparison_out[cols].head(30))
 
+# Keep genera that reach at least 0.01% in ASD or Control, then split by sign of the difference.
 filtered = comparison_out[
     (comparison_out["ASD"] > 0.01) | (comparison_out["Control"] > 0.01)
 ]
@@ -91,6 +96,7 @@ print(higher_in_asd[cols].head(30))
 print("\nLower in ASD")
 print(lower_in_asd[cols].head(30))
 
+# Paper-based beneficial vs harmful taxa. A taxon listed as harmful wins if both apply.
 GOOD_GENERA = {
     "Bifidobacterium",
     "Lactobacillus",
@@ -173,6 +179,7 @@ print(
     )
 )
 
+# OLS: autism (1 = ASD, 0 = control) predicting each composite score.
 X = sm.add_constant(sample_df["autism"])
 good_model = sm.OLS(sample_df["good_bacteria"], X).fit()
 bad_model = sm.OLS(sample_df["bad_bacteria"], X).fit()
@@ -181,6 +188,9 @@ print(good_model.summary())
 print("\n=== bad_bacteria ~ autism ===")
 print(bad_model.summary())
 
+# Boxplot + strip: two groups, continuous scores, n = 30 each. The box shows
+# the distribution; points keep every sample visible. Separate y-axes because
+# the bad-bacteria score is a much smaller share of reads.
 sns.set_theme(style="ticks", context="notebook")
 plot_df = sample_df.copy()
 plot_df["group"] = plot_df["autism"].map({0: "Control", 1: "ASD"})
@@ -301,6 +311,7 @@ def polars_pipeline():
     )
 
 
+# Same load / relative-abundance / genus-mean pipeline in Pandas and Polars.
 print("\n=== Pandas vs Polars (same pipeline on this CSV) ===")
 try:
     import polars as pl  # noqa: F401

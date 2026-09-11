@@ -61,6 +61,13 @@ Or open `question1.ipynb` and run all cells. The CSV files must stay in this sam
 
 *Helicobacter hepaticus* is listed in the paper but is not in this table.
 
+## Outcomes
+
+- **Good bacteria:** ASD samples are about **4.2 percentage points higher** than controls (~28.7% vs ~24.5% of reads). The autism coefficient is significant (p < 0.001) and the model explains about 23% of the variation (R² = 0.23).
+- **Bad bacteria:** no significant difference (about −0.2 percentage points, p = 0.56, R² = 0.006). The confidence interval crosses zero.
+- **Takeaway:** in these 60 metagenomes, ASD is linked to a higher beneficial-taxon score and not to a higher (or lower) harmful-taxon score. That is not a clinical test.
+- **Polars:** the same load → relative abundance → genus mean pipeline was about **3× faster** in Polars than in Pandas on this table (~98 ms vs ~280 ms), with genus means matching to floating-point noise.
+
 ## Question 2: Rust notebook
 
 [`question2.ipynb`](question2.ipynb) is the class `rust_vs_python_intro.ipynb` notebook, run with the **Rust** kernel, plus extra cells at the bottom that experiment with ownership using taxon names from this dataset.
