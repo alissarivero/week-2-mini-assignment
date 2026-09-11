@@ -70,16 +70,11 @@ Or open `question1.ipynb` and run all cells. The CSV files must stay in this sam
 
 ## Question 2: Rust notebook
 
-[`question2.ipynb`](question2.ipynb) is the class `rust_vs_python_intro.ipynb` notebook, run with the **Rust** kernel, plus extra cells at the bottom that experiment with ownership using taxon names from this dataset.
+[`question2.ipynb`](question2.ipynb) is the **same analysis as the Python notebook**, rewritten in Rust. It loads `ASD meta abundance.csv`, inspects it, splits ASD vs control, groups by genus, builds good/bad scores, fits the same two OLS models, and draws the boxplots. Ownership experiments are mixed in: move vs clone, borrow vs take, and a read+write that is supposed to fail.
 
 1. Install the Rust Jupyter kernel (`evcxr_jupyter --install`) if it is not already there.
 2. Open `question2.ipynb` and pick **Rust** (not Python). If `let` is a `SyntaxError`, you are still on Python.
 3. Run all cells from top to bottom. A few cells are supposed to fail — that is the ownership point.
-
-What I changed:
-
-- Filled in the class “Your turn” cells (name, movie, cutoff, loop, `mut`, `.clone()`).
-- Added extra cells that **move** a `Vec` of taxa, **clone** it, pass it by value vs `&` borrow, and try a read + write at the same time (that cell is supposed to fail).
 
 ## Files
 
@@ -87,7 +82,7 @@ What I changed:
 |---|---|
 | `question1.py` | Data analysis Python script (required) |
 | `question1.ipynb` | Same analysis as a notebook, plus the Polars timing |
-| `question2.ipynb` | Modified Rust Jupyter notebook (required) |
+| `question2.ipynb` | Same analysis in Rust, plus ownership experiments (required) |
 | `README.md` | This file (required) |
 | `ASD meta abundance.csv` | Metagenome abundance table used in the analysis |
 | `GSE113690_Autism_16S_rRNA_OTU_assignment_and_abundance.csv` | 16S OTU table (not used) |
