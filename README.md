@@ -50,18 +50,54 @@ Or open `question1.ipynb` and run all cells. The CSV files must stay in this sam
 
 ## Tests and CI
 
-Core functions live in [`analysis.py`](analysis.py). Tests cover loading, preprocessing, theme feature engineering, OLS training/prediction/evaluation, plotting, and one full-pipeline system test.
+Importable functions live in [`analysis.py`](analysis.py) and [`visuals.py`](visuals.py). [`question1.py`](question1.py) is only the printed report; tests never import that script, so running pytest does not refit every model or rewrite the gallery.
+
+[`pytest.ini`](pytest.ini) puts the project root on `pythonpath` and collects from `tests/`.
+
+### How to run
 
 ```bash
 python -m pip install -r requirements.txt
 make test
 ```
 
-GitHub Actions runs the same suite on every push and pull request ([`.github/workflows/test.yml`](.github/workflows/test.yml)).
+Same thing without Make:
 
-**All 22 tests passing locally:**
+```bash
+python -m pytest
+python -m pytest -v
+python -m pytest tests/test_loading.py -v
+```
 
-![pytest: 22 passed](docs/tests-pass.png)
+### What the suite covers
+
+**23 tests:** 22 unit tests of core steps, plus 1 system/integration test of the full pipeline. Each file checks both the happy path and an edge case (missing file, blank statement, `NA` strings, words that should not count as themes).
+
+| File | Workflow step | What it checks |
+|---|---|---|
+| [`tests/test_loading.py`](tests/test_loading.py) | Data loading | 545 rows; required columns; Latin-1 load; trailing space stripped from `NativeCounty`; missing path raises `FileNotFoundError` |
+| [`tests/test_preprocessing.py`](tests/test_preprocessing.py) | Preprocessing | Declined / `None` / blank statements; real statements are kept; `"NA"` and junk become numeric missing; unknown `PreviousCrime` values are dropped |
+| [`tests/test_features.py`](tests/test_features.py) | Feature engineering | Tokenizer; remorse / gratitude+love / family / religion hits per 100 words; *ask* and *tell* are not themes; `person` is not `son`; `goodbye` is not `god`; declined rows score 0 |
+| [`tests/test_models.py`](tests/test_models.py) | Model train / predict / evaluate | `apology_rate ~ prior_crime` and `religion_rate ~ prior_crime` recover a known shift; p-values and `nobs`; demographic OLS includes Age, education, and race dummies; Other / missing rows are dropped |
+| [`tests/test_visualization.py`](tests/test_visualization.py) | Visualization | Boxplots, word clouds, heatmap, and lollipop figures write real PNG files |
+| [`tests/test_system.py`](tests/test_system.py) | Full pipeline | One integration test: load the real CSV → score themes → fit both model sets → write plots. Asserts 545 rows, 114 declined, 509 labeled, 479 demographic rows, fitted OLS objects, and non-empty figures |
+
+The system test is the one that has to keep working if someone changes load, scoring, or plotting. The unit tests pin the pieces so a failure points at the step that broke.
+
+### Continuous integration
+
+[`.github/workflows/test.yml`](.github/workflows/test.yml) runs on every push, pull request, and manual dispatch:
+
+1. Check out the repo
+2. Set up Python 3.12
+3. `make install` (`pip install -r requirements.txt`)
+4. `make test` with `MPLBACKEND=Agg` so plots do not need a display
+
+Status badge at the top of this file: [![Python tests](https://github.com/alissarivero/week-2-mini-assignment/actions/workflows/test.yml/badge.svg)](https://github.com/alissarivero/week-2-mini-assignment/actions/workflows/test.yml)
+
+### Passing run
+
+![pytest: 23 passed](docs/tests-pass.png)
 
 ## What the Python analysis does
 
