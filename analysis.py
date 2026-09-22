@@ -485,6 +485,9 @@ def run_pipeline(data_path=None, plot_dir=None):
     theme_models = fit_theme_models(demo)
     prior_plot = plot_prior_crime(model_df, plot_dir / "apology_religion.png")
     theme_plot = plot_themes(demo, plot_dir / "last_statement_themes.png")
+    from visuals import save_visuals
+
+    gallery = save_visuals(df, labeled, demo, plot_dir)
     return {
         "df": df,
         "labeled": labeled,
@@ -494,4 +497,5 @@ def run_pipeline(data_path=None, plot_dir=None):
         "theme_models": theme_models,
         "prior_plot": prior_plot,
         "theme_plot": theme_plot,
+        "gallery": gallery,
     }

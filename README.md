@@ -91,6 +91,28 @@ GitHub Actions runs the same suite on every push and pull request ([`.github/wor
 - **Takeaway:** a prior criminal record does not change remorse language and only weakly tracks religion. Race is the demographic that shows up, and even then it explains little of the theme rates. That is not a claim about guilt, faith, or who “should” apologize.
 - **Polars:** the same load → keyword-rate → group-mean pipeline was about **11× faster** in Polars than in Pandas on this table (~10 ms vs ~114 ms). Polars uses a word-boundary regex over the same lists, so group means can differ slightly from the Python tokenizer.
 
+## Visualizations
+
+`python question1.py` writes the original boxplots plus a gallery of word clouds and theme summaries. Neutral verbs such as *ask* and *tell* are left out of the clouds.
+
+**What people actually said**
+
+![All last words](wordcloud_all.png)
+
+**By prior record**
+
+![Last words by prior criminal record](wordclouds_prior.png)
+
+**The four themes** (only remorse, gratitude/love, family, and religion words)
+
+![Theme word clouds](wordclouds_themes.png)
+
+**Theme rates by race**
+
+![Theme heatmap](theme_heatmap.png)
+
+![Theme profile](theme_profile.png)
+
 ## Question 2: Rust notebook
 
 [`question2.ipynb`](question2.ipynb) is the **same analysis as the Python notebook**, rewritten in Rust, with the same section titles, dataset abstract, and interpretation write-up. It loads `Texas Last Statement - CSV.csv`, inspects it, splits prior vs no prior, groups by race, builds theme scores, fits the same OLS models, and draws the boxplots. Ownership is used so it **works**: clone when two names need the list, borrow (`&`) to look without taking, and drop readers before a write.
@@ -116,4 +138,9 @@ GitHub Actions runs the same suite on every push and pull request ([`.github/wor
 | `Texas Last Statement - Excel.xlsx` | Same table (not used) |
 | `apology_religion.png` | Prior-crime figure written by `question1.py` |
 | `last_statement_themes.png` | Theme-by-race figure written by `question1.py` |
+| `wordcloud_all.png` | Word cloud of every spoken last statement |
+| `wordclouds_prior.png` | Word clouds, no prior vs prior record |
+| `wordclouds_themes.png` | Four theme word clouds |
+| `theme_heatmap.png` / `theme_profile.png` | Theme rates by race |
+| `visuals.py` | Word-cloud and gallery figures |
 | `Old dataset/` | Previous ASD microbiome assignment files |

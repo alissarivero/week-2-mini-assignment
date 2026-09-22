@@ -234,6 +234,13 @@ def main():
     plot_themes(demo, out_themes)
     print(f"Saved figure to {out_themes}")
 
+    from visuals import save_visuals
+
+    gallery = save_visuals(df, labeled, demo, Path(__file__).resolve().parent)
+    print("\nSaved gallery figures:")
+    for name, path in gallery.items():
+        print(f"  {name}: {path}")
+
     print("\n=== Pandas vs Polars (same pipeline on this CSV) ===")
     try:
         import polars as pl  # noqa: F401
