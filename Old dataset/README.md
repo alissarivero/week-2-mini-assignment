@@ -1,0 +1,90 @@
+# Week 2 Mini-Assignment: ASD gut microbiome
+
+Alissa Rivero
+
+This repository has four files:
+
+1. A **Python data analysis script** — [`question1.py`](question1.py)
+2. A **Python Jupyter notebook** (same analysis in [`question1.ipynb`](question1.ipynb))
+3. This **README**
+4. A **Rust Jupyter notebook** — [`question2.ipynb`](question2.ipynb)
+
+The last section of the Python script (and notebook) also times **Pandas vs Polars** on the same pipeline.
+
+**Research questions**
+
+1. Is ASD associated with more or less **good** gut bacteria?
+2. Is ASD associated with more or less **bad** gut bacteria?
+
+## Dataset
+
+[Human Gut Microbiome with ASD (Kaggle)](https://www.kaggle.com/datasets/antaresnyc/human-gut-microbiome-with-asd/data)
+
+The file used here is `ASD meta abundance.csv`: shotgun metagenome abundances from Dan et al., 2020 (*Gut Microbes*).
+
+| | |
+|---|---|
+| Rows | 5,619 species (`g__Genus;s__Species`) |
+| Columns | `Taxonomy` plus 60 stool samples |
+| Values | Integer read counts (not percentages) |
+| Groups | `A*` = 30 ASD samples; `B*` = 30 typically developing controls |
+| Missing values | None (zeros mean the taxon was not detected) |
+
+About two-thirds of the cells are zero, and sample totals differ, so group comparisons use **relative abundance** (each sample’s counts divided by that sample’s total).
+
+A second file, `GSE113690_Autism_16S_rRNA_OTU_assignment_and_abundance.csv`, is the 16S rRNA OTU table from the same study. It has more samples and is not used in the analysis.
+
+Papers: [GSE113690](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE113690) (16S) and [GSE113540](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE113540) (metagenomes). Beneficial vs harmful taxa used in the models follow the paper’s categorizations.
+
+## How to run the Python analysis
+
+```bash
+pip install pandas statsmodels matplotlib seaborn polars
+python question1.py
+```
+
+Or open `question1.ipynb` and run all cells. The CSV files must stay in this same folder. If you see `ModuleNotFoundError`, the notebook kernel is a different Python than the one where you installed packages.
+
+## What the Python analysis does
+
+1. Load and inspect `ASD meta abundance.csv`.
+2. Split columns into ASD (`A*`) and control (`B*`).
+3. Reshape to long format and use `groupby()` for mean / count / std by group and by genus.
+4. Compare genera side by side with percent difference, keep genera above 0.01%, and split into higher vs lower in ASD.
+5. Build two per-sample scores (sum of relative abundance):
+   - **good bacteria** — *Bifidobacterium*, *Lactobacillus*, *Faecalibacterium*, *Roseburia*, *Ruminococcus* (except *R. gnavus*), *Bacteroides*, *Prevotella*, *Oxalobacter formigenes*
+   - **bad bacteria** — *C. difficile*, *E. coli*, *Salmonella*, *Shigella*, *Klebsiella*, *Serratia*, *Pseudomonas*, *Campylobacter*, *R. gnavus*, *Desulfovibrio*, plus mapped Enterobacteriaceae / Fusobacteriaceae / Veillonellaceae genera
+6. Fit two OLS models with autism as the predictor (`1` = ASD, `0` = control):
+   - `good_bacteria ~ autism`
+   - `bad_bacteria ~ autism`
+7. Plot both scores as boxplots (with sample points) for Control vs ASD.
+8. Time the same relative-abundance + genus mean pipeline in **Pandas** and **Polars**.
+
+*Helicobacter hepaticus* is listed in the paper but is not in this table.
+
+## Outcomes
+
+- **Good bacteria:** ASD samples are about **4.2 percentage points higher** than controls (~28.7% vs ~24.5% of reads). The autism coefficient is significant (p < 0.001) and the model explains about 23% of the variation (R² = 0.23).
+- **Bad bacteria:** no significant difference (about −0.2 percentage points, p = 0.56, R² = 0.006). The confidence interval crosses zero.
+- **Takeaway:** in these 60 metagenomes, ASD is linked to a higher beneficial-taxon score and not to a higher (or lower) harmful-taxon score. That is not a clinical test.
+- **Polars:** the same load → relative abundance → genus mean pipeline was about **3× faster** in Polars than in Pandas on this table (~98 ms vs ~280 ms), with genus means matching to floating-point noise.
+
+## Question 2: Rust notebook
+
+[`question2.ipynb`](question2.ipynb) is the **same analysis as the Python notebook**, rewritten in Rust, with the same section titles, dataset abstract, and interpretation write-up. It loads `ASD meta abundance.csv`, inspects it, splits ASD vs control, groups by genus, builds good/bad scores, fits the same two OLS models, and draws the boxplots. Ownership is used so it **works**: clone when two names need the list, borrow (`&`) to look without taking, and drop readers before a write.
+
+1. Install the Rust Jupyter kernel (`evcxr_jupyter --install`) if it is not already there.
+2. Open `question2.ipynb` and pick **Rust** (not Python). If `let` is a `SyntaxError`, you are still on Python.
+3. Run all cells from top to bottom. Every cell is meant to compile.
+
+## Files
+
+| File | Role |
+|---|---|
+| `question1.py` | Data analysis Python script (required) |
+| `question1.ipynb` | Same analysis as a notebook, plus the Polars timing |
+| `question2.ipynb` | Same analysis in Rust, plus ownership experiments (required) |
+| `README.md` | This file (required) |
+| `ASD meta abundance.csv` | Metagenome abundance table used in the analysis |
+| `GSE113690_Autism_16S_rRNA_OTU_assignment_and_abundance.csv` | 16S OTU table (not used) |
+| `good_bad_bacteria.png` | Figure written by `question1.py` |
