@@ -8,10 +8,10 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
-import statsmodels.api as sm
+import matplotlib.pyplot as plt  # noqa: E402
+import pandas as pd  # noqa: E402
+import seaborn as sns  # noqa: E402
+import statsmodels.api as sm  # noqa: E402
 
 DATA_PATH = Path(__file__).resolve().parent / "Texas Last Statement - CSV.csv"
 
@@ -172,6 +172,16 @@ RELIGION_EXACT = {
 }
 RELIGION_PREFIXES = ("jesus", "christ", "heaven", "pray", "prayer", "bible", "bless")
 
+THEMES = {
+    "remorse": {"exact": REMORSE_EXACT, "prefixes": REMORSE_PREFIXES},
+    "gratitude_love": {
+        "exact": GRATITUDE_LOVE_EXACT,
+        "prefixes": GRATITUDE_LOVE_PREFIXES,
+    },
+    "family": {"exact": FAMILY_EXACT, "prefixes": FAMILY_PREFIXES},
+    "religion": {"exact": RELIGION_EXACT, "prefixes": RELIGION_PREFIXES},
+}
+
 THEME_RATES = [
     "apology_rate",
     "remorse_rate",
@@ -205,6 +215,12 @@ def theme_hits(words, exact, prefixes):
     return sum(_is_hit(word, exact, prefixes) for word in words)
 
 
+def hits_per_hundred(hits, word_count):
+    """Theme hits per 100 words. Empty or declined statements score 0."""
+    denom = word_count.astype(float).where(word_count > 0)
+    return (hits.astype(float) / denom * 100).fillna(0.0)
+
+
 def is_declined(text):
     if pd.isna(text):
         return True
@@ -223,7 +239,10 @@ def load_statements(path=None):
 
 
 def coerce_numeric(df, columns=NUMERIC_COLS):
-    """Turn Age / PreviousCrime / education (and similar) into numbers; bad values become NA."""
+    """Turn Age, PreviousCrime, and education into numbers.
+
+    Values that are not numeric become missing.
+    """
     out = df.copy()
     for col in columns:
         if col in out.columns:
@@ -239,25 +258,19 @@ def add_text_scores(frame):
     out["declined"] = out["LastStatement"].map(is_declined)
     out.loc[out["declined"], "word_count"] = 0
 
-    remorse = tokens.map(lambda words: theme_hits(words, REMORSE_EXACT, REMORSE_PREFIXES))
-    gratitude = tokens.map(
-        lambda words: theme_hits(words, GRATITUDE_LOVE_EXACT, GRATITUDE_LOVE_PREFIXES)
-    )
-    family = tokens.map(lambda words: theme_hits(words, FAMILY_EXACT, FAMILY_PREFIXES))
-    religion = tokens.map(lambda words: theme_hits(words, RELIGION_EXACT, RELIGION_PREFIXES))
+    for name, spec in THEMES.items():
+        exact = spec["exact"]
+        prefixes = spec["prefixes"]
+        hits = tokens.map(
+            lambda words, exact=exact, prefixes=prefixes: theme_hits(
+                words, exact, prefixes
+            )
+        )
+        out[f"{name}_hits"] = hits
+        out[f"{name}_rate"] = hits_per_hundred(hits, out["word_count"])
 
-    out["remorse_hits"] = remorse
-    out["gratitude_love_hits"] = gratitude
-    out["family_hits"] = family
-    out["religion_hits"] = religion
-    out["apology_hits"] = remorse
-
-    denom = out["word_count"].astype(float).where(out["word_count"] > 0)
-    out["remorse_rate"] = (remorse.astype(float) / denom * 100).fillna(0.0)
+    out["apology_hits"] = out["remorse_hits"]
     out["apology_rate"] = out["remorse_rate"]
-    out["gratitude_love_rate"] = (gratitude.astype(float) / denom * 100).fillna(0.0)
-    out["family_rate"] = (family.astype(float) / denom * 100).fillna(0.0)
-    out["religion_rate"] = (religion.astype(float) / denom * 100).fillna(0.0)
     return out
 
 
@@ -301,10 +314,15 @@ def fit_prior_models(model_df):
 
 
 def prepare_demographic_frame(model_df):
-    """Drop missing age/education and keep White / Black / Hispanic (White = reference)."""
+    """Drop missing age or education. Keep White, Black, and Hispanic.
+
+    White is the reference category in the race dummies.
+    """
     demo = model_df.dropna(subset=["Age", "EducationLevel", "Race"]).copy()
     demo = demo[demo["Race"].isin(["White", "Black", "Hispanic"])]
-    demo["Race"] = pd.Categorical(demo["Race"], categories=["White", "Black", "Hispanic"])
+    demo["Race"] = pd.Categorical(
+        demo["Race"], categories=["White", "Black", "Hispanic"]
+    )
     return demo
 
 
@@ -320,9 +338,78 @@ def fit_theme_models(demo):
     """OLS: each theme rate ~ prior_crime + Age + EducationLevel + Race."""
     x_demo = demographic_design_matrix(demo)
     models = {}
-    for outcome in ("remorse_rate", "gratitude_love_rate", "family_rate", "religion_rate"):
+    for outcome in (
+        "remorse_rate",
+        "gratitude_love_rate",
+        "family_rate",
+        "religion_rate",
+    ):
         models[outcome] = sm.OLS(demo[outcome].astype(float), x_demo).fit()
     return models
+
+
+def _draw_grouped_boxes(
+    ax,
+    data,
+    x,
+    y,
+    order,
+    palette,
+    edge,
+    box_width=0.55,
+    strip_size=4.5,
+    strip_alpha=0.55,
+    strip_linewidth=0.6,
+    box_alpha=None,
+):
+    """Boxplot plus jittered points.
+
+    Strip points still show extreme rates. Boxplot fliers stay off.
+    """
+    ax.set_facecolor("#FBF9F6")
+    sns.boxplot(
+        data=data,
+        x=x,
+        y=y,
+        hue=x,
+        hue_order=order,
+        order=order,
+        palette=palette,
+        width=box_width,
+        linewidth=1.1,
+        fliersize=0,
+        legend=False,
+        ax=ax,
+    )
+    for patch in ax.patches:
+        patch.set_edgecolor(edge)
+        patch.set_linewidth(1.1)
+        if box_alpha is not None:
+            patch.set_alpha(box_alpha)
+    sns.stripplot(
+        data=data,
+        x=x,
+        y=y,
+        hue=x,
+        hue_order=order,
+        order=order,
+        palette=palette,
+        legend=False,
+        jitter=0.18,
+        size=strip_size,
+        alpha=strip_alpha,
+        linewidth=strip_linewidth,
+        edgecolor="white",
+        ax=ax,
+    )
+    ax.set_title(y, pad=10, color=edge)
+    ax.set_xlabel("")
+    ax.set_ylabel("Hits per 100 words")
+    sns.despine(ax=ax, trim=True)
+    ax.spines["left"].set_color("#C9C3B8")
+    ax.spines["bottom"].set_color("#C9C3B8")
+    ax.yaxis.grid(True, color="#E6E1D8", linewidth=0.8)
+    ax.set_axisbelow(True)
 
 
 def plot_prior_crime(model_df, out_path):
@@ -338,49 +425,16 @@ def plot_prior_crime(model_df, out_path):
     fig, axes = plt.subplots(1, 2, figsize=(10.5, 5.2), facecolor="#FBF9F6")
     fig.patch.set_facecolor("#FBF9F6")
     for ax, (col, palette, edge) in zip(axes, panels):
-        ax.set_facecolor("#FBF9F6")
-        sns.boxplot(
-            data=plot_df,
+        _draw_grouped_boxes(
+            ax,
+            plot_df,
             x="group",
             y=col,
-            hue="group",
-            hue_order=["No prior", "Prior"],
             order=["No prior", "Prior"],
             palette=palette,
-            width=0.55,
-            linewidth=1.1,
-            fliersize=0,
-            legend=False,
-            ax=ax,
+            edge=edge,
+            box_alpha=0.95,
         )
-        for patch in ax.patches:
-            patch.set_edgecolor(edge)
-            patch.set_linewidth(1.1)
-            patch.set_alpha(0.95)
-        sns.stripplot(
-            data=plot_df,
-            x="group",
-            y=col,
-            hue="group",
-            hue_order=["No prior", "Prior"],
-            order=["No prior", "Prior"],
-            palette=palette,
-            legend=False,
-            jitter=0.18,
-            size=4.5,
-            alpha=0.55,
-            linewidth=0.6,
-            edgecolor="white",
-            ax=ax,
-        )
-        ax.set_title(col, pad=10, color=edge)
-        ax.set_xlabel("")
-        ax.set_ylabel("Hits per 100 words")
-        sns.despine(ax=ax, trim=True)
-        ax.spines["left"].set_color("#C9C3B8")
-        ax.spines["bottom"].set_color("#C9C3B8")
-        ax.yaxis.grid(True, color="#E6E1D8", linewidth=0.8)
-        ax.set_axisbelow(True)
     fig.suptitle(
         "Last-statement language by prior criminal record",
         y=1.03,
@@ -413,48 +467,19 @@ def plot_themes(demo, out_path):
     race_order = ["White", "Black", "Hispanic"]
     race_palette = {"White": "#E8E0D2", "Black": "#8A7E6A", "Hispanic": "#C4B49A"}
     for ax, (col, edge) in zip(axes, theme_panels):
-        ax.set_facecolor("#FBF9F6")
-        sns.boxplot(
-            data=theme_plot,
+        _draw_grouped_boxes(
+            ax,
+            theme_plot,
             x="Race",
             y=col,
-            hue="Race",
-            hue_order=race_order,
             order=race_order,
             palette=race_palette,
-            width=0.6,
-            linewidth=1.1,
-            fliersize=0,
-            legend=False,
-            ax=ax,
+            edge=edge,
+            box_width=0.6,
+            strip_size=3.5,
+            strip_alpha=0.45,
+            strip_linewidth=0.5,
         )
-        for patch in ax.patches:
-            patch.set_edgecolor(edge)
-            patch.set_linewidth(1.1)
-        sns.stripplot(
-            data=theme_plot,
-            x="Race",
-            y=col,
-            hue="Race",
-            hue_order=race_order,
-            order=race_order,
-            palette=race_palette,
-            legend=False,
-            jitter=0.18,
-            size=3.5,
-            alpha=0.45,
-            linewidth=0.5,
-            edgecolor="white",
-            ax=ax,
-        )
-        ax.set_title(col, pad=10, color=edge)
-        ax.set_xlabel("")
-        ax.set_ylabel("Hits per 100 words")
-        sns.despine(ax=ax, trim=True)
-        ax.spines["left"].set_color("#C9C3B8")
-        ax.spines["bottom"].set_color("#C9C3B8")
-        ax.yaxis.grid(True, color="#E6E1D8", linewidth=0.8)
-        ax.set_axisbelow(True)
     fig.suptitle(
         "Last-word themes by race",
         y=1.03,
