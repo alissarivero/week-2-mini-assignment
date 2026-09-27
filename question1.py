@@ -22,8 +22,10 @@ from analysis import (
     add_text_scores,
     build_model_frame,
     coerce_numeric,
+    fit_length_sensitivity,
     fit_prior_models,
     fit_theme_models,
+    MIN_SPOKEN_WORDS,
     label_prior_groups,
     load_statements,
     plot_prior_crime,
@@ -89,13 +91,24 @@ def polars_pipeline():
                 pl.col("LastStatement").is_null()
                 | pl.col("text").str.contains(declined_pat)
             ).alias("declined"),
-            pl.col("text").str.count_matches(rf"(?i)\b(?:{remorse})").alias("apology_hits"),
-            pl.col("text").str.count_matches(rf"(?i)\b(?:{gratitude})").alias("gratitude_love_hits"),
-            pl.col("text").str.count_matches(rf"(?i)\b(?:{family})").alias("family_hits"),
-            pl.col("text").str.count_matches(rf"(?i)\b(?:{religion})").alias("religion_hits"),
+            pl.col("text")
+            .str.count_matches(rf"(?i)\b(?:{remorse})")
+            .alias("apology_hits"),
+            pl.col("text")
+            .str.count_matches(rf"(?i)\b(?:{gratitude})")
+            .alias("gratitude_love_hits"),
+            pl.col("text")
+            .str.count_matches(rf"(?i)\b(?:{family})")
+            .alias("family_hits"),
+            pl.col("text")
+            .str.count_matches(rf"(?i)\b(?:{religion})")
+            .alias("religion_hits"),
         )
         .with_columns(
-            pl.when(pl.col("declined")).then(0).otherwise(pl.col("word_count")).alias("word_count")
+            pl.when(pl.col("declined"))
+            .then(0)
+            .otherwise(pl.col("word_count"))
+            .alias("word_count")
         )
         .with_columns(
             pl.when(pl.col("word_count") == 0)
@@ -139,7 +152,8 @@ def main():
     print(df.describe())
     print("Missing values per column (empty or NA):")
     missing = df.apply(
-        lambda col: col.isna().sum() + (col.astype(str).str.strip().isin(["", "NA"])).sum()
+        lambda col: col.isna().sum()
+        + (col.astype(str).str.strip().isin(["", "NA"])).sum()
     )
     print(missing)
 
@@ -194,7 +208,9 @@ def main():
     for metric in comparison_metrics:
         denom = comparison[(metric, "No prior")].replace(0, pd.NA)
         comparison[(metric, "percent_diff")] = (
-            (comparison[(metric, "Prior")] - comparison[(metric, "No prior")]) / denom * 100
+            (comparison[(metric, "Prior")] - comparison[(metric, "No prior")])
+            / denom
+            * 100
         )
 
     print("\n=== Percent difference (Prior minus No prior) / No prior ===")
@@ -219,6 +235,17 @@ def main():
     print(prior_models["apology"].summary())
     print("\n=== religion_rate ~ prior_crime ===")
     print(prior_models["religion"].summary())
+
+    sensitive_models, sensitive = fit_length_sensitivity(model_df)
+    print(
+        "\n=== Sensitivity: spoken statements with at least "
+        f"{MIN_SPOKEN_WORDS} words ==="
+    )
+    print(f"Rows kept: {len(sensitive)} of {len(model_df)}")
+    print("\n=== apology_rate ~ prior_crime (longer statements) ===")
+    print(sensitive_models["apology"].summary())
+    print("\n=== religion_rate ~ prior_crime (longer statements) ===")
+    print(sensitive_models["religion"].summary())
 
     demo = prepare_demographic_frame(model_df)
     theme_models = fit_theme_models(demo)
@@ -256,7 +283,12 @@ def main():
             other = polars_rows.get(group)
             if other is None:
                 continue
-            for col in ("apology_rate", "religion_rate", "gratitude_love_rate", "family_rate"):
+            for col in (
+                "apology_rate",
+                "religion_rate",
+                "gratitude_love_rate",
+                "family_rate",
+            ):
                 if other.get(col) is None:
                     continue
                 diffs.append(abs(float(row[col]) - float(other[col])))

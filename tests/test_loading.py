@@ -39,6 +39,8 @@ def test_load_missing_file_raises():
 
 def test_load_statements_from_temp_copy(tmp_path):
     copy = tmp_path / "copy.csv"
-    pd.read_csv(DATA_PATH, encoding="latin-1").to_csv(copy, index=False, encoding="latin-1")
+    pd.read_csv(DATA_PATH, encoding="latin-1").to_csv(
+        copy, index=False, encoding="latin-1"
+    )
     df = load_statements(copy)
     assert len(df) == 545

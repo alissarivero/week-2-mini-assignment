@@ -294,6 +294,7 @@ def build_model_frame(labeled):
             "family_rate",
             "group",
             "declined",
+            "word_count",
             "Age",
             "EducationLevel",
             "Race",
@@ -311,6 +312,29 @@ def fit_prior_models(model_df):
     apology_model = sm.OLS(model_df["apology_rate"].astype(float), x).fit()
     religion_model = sm.OLS(model_df["religion_rate"].astype(float), x).fit()
     return {"apology": apology_model, "religion": religion_model}
+
+
+MIN_SPOKEN_WORDS = 20
+
+
+def spoken_long_enough(model_df, min_words=MIN_SPOKEN_WORDS):
+    """Drop declined rows and statements shorter than min_words.
+
+    A one- or two-word statement can score 50 to 100 hits per 100 words.
+    Declined rows are structural zeros, not quiet statements.
+    """
+    if "word_count" not in model_df.columns:
+        raise KeyError("word_count is required to apply the length filter")
+    out = model_df.copy()
+    if "declined" in out.columns:
+        out = out.loc[~out["declined"].fillna(False).astype(bool)]
+    return out.loc[out["word_count"] >= min_words].copy()
+
+
+def fit_length_sensitivity(model_df, min_words=MIN_SPOKEN_WORDS):
+    """Refit the two prior-crime models on longer spoken statements."""
+    subset = spoken_long_enough(model_df, min_words=min_words)
+    return fit_prior_models(subset), subset
 
 
 def prepare_demographic_frame(model_df):

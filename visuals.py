@@ -5,7 +5,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 from wordcloud import STOPWORDS, WordCloud
 
@@ -131,7 +130,9 @@ def plot_wordcloud_all(df, out_path):
     text = _join_statements(df)
     cloud = _wordcloud(
         text,
-        _color_cycle(["#5E7A32", "#3D6B8A", "#B56B86", "#8A6A2F", "#2F2B26", "#7A6A4A"]),
+        _color_cycle(
+            ["#5E7A32", "#3D6B8A", "#B56B86", "#8A6A2F", "#2F2B26", "#7A6A4A"]
+        ),
         width=1800,
         height=1000,
     )
@@ -189,17 +190,32 @@ def _theme_frequencies(frame, exact, prefixes):
 
 
 def plot_wordclouds_by_theme(df, out_path):
-    """Four clouds built only from remorse, gratitude/love, family, and religion words."""
+    """Four clouds from remorse, gratitude/love, family, and religion words."""
     panels = [
-        ("Remorse", REMORSE_EXACT, REMORSE_PREFIXES, ["#D7E2B4", "#8AA05A", "#5E7A32", "#3F5320"]),
+        (
+            "Remorse",
+            REMORSE_EXACT,
+            REMORSE_PREFIXES,
+            ["#D7E2B4", "#8AA05A", "#5E7A32", "#3F5320"],
+        ),
         (
             "Gratitude and love",
             GRATITUDE_LOVE_EXACT,
             GRATITUDE_LOVE_PREFIXES,
             ["#F3D6E0", "#C98AA3", "#B56B86", "#7A3F56"],
         ),
-        ("Family", FAMILY_EXACT, FAMILY_PREFIXES, ["#C5D7E4", "#6F93AE", "#3D6B8A", "#24485C"]),
-        ("Religion", RELIGION_EXACT, RELIGION_PREFIXES, ["#E6D3A8", "#C4A45C", "#8A6A2F", "#5A4318"]),
+        (
+            "Family",
+            FAMILY_EXACT,
+            FAMILY_PREFIXES,
+            ["#C5D7E4", "#6F93AE", "#3D6B8A", "#24485C"],
+        ),
+        (
+            "Religion",
+            RELIGION_EXACT,
+            RELIGION_PREFIXES,
+            ["#E6D3A8", "#C4A45C", "#8A6A2F", "#5A4318"],
+        ),
     ]
     fig, axes = plt.subplots(2, 2, figsize=(13.2, 10.4), facecolor=BG)
     for ax, (title, exact, prefixes, colors) in zip(axes.ravel(), panels):
@@ -265,7 +281,13 @@ def plot_theme_heatmap(demo, out_path):
     ax.set_xlabel("")
     ax.set_ylabel("")
     ax.tick_params(colors=MUTED)
-    ax.set_title("Average theme rate by race", pad=14, color=INK, fontsize=15, fontweight="semibold")
+    ax.set_title(
+        "Average theme rate by race",
+        pad=14,
+        color=INK,
+        fontsize=15,
+        fontweight="semibold",
+    )
     fig.tight_layout()
     out_path = Path(out_path)
     fig.savefig(out_path, dpi=170, bbox_inches="tight", facecolor=BG)
@@ -277,7 +299,12 @@ def plot_theme_profile(demo, out_path):
     """Lollipop chart of theme means by race."""
     long = demo.melt(
         id_vars="Race",
-        value_vars=["remorse_rate", "gratitude_love_rate", "family_rate", "religion_rate"],
+        value_vars=[
+            "remorse_rate",
+            "gratitude_love_rate",
+            "family_rate",
+            "religion_rate",
+        ],
         var_name="theme",
         value_name="rate",
     )
@@ -290,9 +317,7 @@ def plot_theme_profile(demo, out_path):
         }
     )
     summary = (
-        long.groupby(["theme", "Race"], observed=True)["rate"]
-        .mean()
-        .reset_index()
+        long.groupby(["theme", "Race"], observed=True)["rate"].mean().reset_index()
     )
     theme_order = ["Remorse", "Gratitude & love", "Family", "Religion"]
     race_order = ["White", "Black", "Hispanic"]
@@ -305,7 +330,9 @@ def plot_theme_profile(demo, out_path):
     for race in race_order:
         rows = summary[summary["Race"] == race].set_index("theme").reindex(theme_order)
         ys = y_base + offsets[race]
-        ax.hlines(ys, 0, rows["rate"], color=race_colors[race], linewidth=2.2, alpha=0.85)
+        ax.hlines(
+            ys, 0, rows["rate"], color=race_colors[race], linewidth=2.2, alpha=0.85
+        )
         ax.scatter(
             rows["rate"],
             ys,
@@ -346,8 +373,12 @@ def save_visuals(df, labeled, demo, plot_dir):
     plot_dir.mkdir(parents=True, exist_ok=True)
     paths = {
         "wordcloud_all": plot_wordcloud_all(df, plot_dir / "wordcloud_all.png"),
-        "wordclouds_prior": plot_wordclouds_by_prior(labeled, plot_dir / "wordclouds_prior.png"),
-        "wordclouds_themes": plot_wordclouds_by_theme(df, plot_dir / "wordclouds_themes.png"),
+        "wordclouds_prior": plot_wordclouds_by_prior(
+            labeled, plot_dir / "wordclouds_prior.png"
+        ),
+        "wordclouds_themes": plot_wordclouds_by_theme(
+            df, plot_dir / "wordclouds_themes.png"
+        ),
         "theme_heatmap": plot_theme_heatmap(demo, plot_dir / "theme_heatmap.png"),
         "theme_profile": plot_theme_profile(demo, plot_dir / "theme_profile.png"),
     }

@@ -12,13 +12,22 @@ from analysis import (
     REMORSE_EXACT,
     REMORSE_PREFIXES,
     add_text_scores,
+    build_model_frame,
+    label_prior_groups,
+    spoken_long_enough,
     theme_hits,
     tokenize,
 )
 
 
 def test_tokenize_splits_words_and_keeps_apostrophes():
-    assert tokenize("I love y'all. I'm sorry!") == ["i", "love", "y'all", "i'm", "sorry"]
+    assert tokenize("I love y'all. I'm sorry!") == [
+        "i",
+        "love",
+        "y'all",
+        "i'm",
+        "sorry",
+    ]
 
 
 def test_theme_hits_counts_remorse_not_ask_or_tell():
@@ -61,7 +70,9 @@ def test_add_text_scores_rates_per_100_words():
 
 
 def test_add_text_scores_declined_has_zero_words_and_rates():
-    df = pd.DataFrame({"LastStatement": [None, "This offender declined to make a last statement."]})
+    df = pd.DataFrame(
+        {"LastStatement": [None, "This offender declined to make a last statement."]}
+    )
     scored = add_text_scores(df)
     assert scored["declined"].all()
     assert list(scored["word_count"]) == [0, 0]
@@ -77,3 +88,51 @@ def test_add_text_scores_mixed_themes():
     assert scored.loc[0, "family_hits"] >= 1
     assert scored.loc[0, "religion_hits"] >= 2
     assert scored.loc[0, "apology_rate"] == scored.loc[0, "remorse_rate"]
+
+
+def test_one_word_statement_scores_100_and_is_filtered():
+    df = pd.DataFrame(
+        {
+            "LastStatement": ["sorry"],
+            "PreviousCrime": [0.0],
+            "Age": [40],
+            "EducationLevel": [12],
+            "Race": ["White"],
+        }
+    )
+    scored = add_text_scores(df)
+    assert scored.loc[0, "word_count"] == 1
+    assert scored.loc[0, "apology_rate"] == 100.0
+    kept = spoken_long_enough(build_model_frame(label_prior_groups(scored)))
+    assert len(kept) == 0
+
+
+def test_length_filter_drops_declined_and_keeps_long_statement():
+    long_text = " ".join(["family"] * 25)
+    df = pd.DataFrame(
+        {
+            "LastStatement": [
+                "This offender declined to make a last statement.",
+                long_text,
+            ],
+            "PreviousCrime": [0.0, 1.0],
+            "Age": [40, 41],
+            "EducationLevel": [12, 10],
+            "Race": ["White", "Black"],
+        }
+    )
+    scored = add_text_scores(df)
+    kept = spoken_long_enough(build_model_frame(label_prior_groups(scored)))
+    assert len(kept) == 1
+    assert kept.iloc[0]["word_count"] == 25
+    assert bool(kept.iloc[0]["declined"]) is False
+    edge = spoken_long_enough(
+        pd.DataFrame(
+            {
+                "word_count": [19, 20],
+                "declined": [False, False],
+            }
+        ),
+        min_words=20,
+    )
+    assert list(edge["word_count"]) == [20]

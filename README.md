@@ -4,7 +4,7 @@
 
 Alissa Rivero
 
-This repository has four files:
+The main pieces are:
 
 1. A **Python data analysis script** — [`question1.py`](question1.py)
 2. A **Python Jupyter notebook** (same analysis in [`question1.ipynb`](question1.ipynb))
@@ -71,14 +71,14 @@ python -m pytest tests/test_loading.py -v
 
 ### What the suite covers
 
-**23 tests:** 22 unit tests of core steps, plus 1 system/integration test of the full pipeline. Each file checks both the happy path and an edge case (missing file, blank statement, `NA` strings, words that should not count as themes).
+**26 tests:** 25 unit tests of core steps, plus 1 system/integration test of the full pipeline. Each file checks both the happy path and an edge case (missing file, blank statement, `NA` strings, words that should not count as themes, a one-word statement that scores 100).
 
 | File | Workflow step | What it checks |
 |---|---|---|
 | [`tests/test_loading.py`](tests/test_loading.py) | Data loading | 545 rows; required columns; Latin-1 load; trailing space stripped from `NativeCounty`; missing path raises `FileNotFoundError` |
 | [`tests/test_preprocessing.py`](tests/test_preprocessing.py) | Preprocessing | Declined / `None` / blank statements; real statements are kept; `"NA"` and junk become numeric missing; unknown `PreviousCrime` values are dropped |
-| [`tests/test_features.py`](tests/test_features.py) | Feature engineering | Tokenizer; remorse / gratitude+love / family / religion hits per 100 words; *ask* and *tell* are not themes; `person` is not `son`; `goodbye` is not `god`; declined rows score 0 |
-| [`tests/test_models.py`](tests/test_models.py) | Model train / predict / evaluate | `apology_rate ~ prior_crime` and `religion_rate ~ prior_crime` recover a known shift; p-values and `nobs`; demographic OLS includes Age, education, and race dummies; Other / missing rows are dropped |
+| [`tests/test_features.py`](tests/test_features.py) | Feature engineering | Tokenizer; remorse / gratitude+love / family / religion hits per 100 words; *ask* and *tell* are not themes; `person` is not `son`; `goodbye` is not `god`; declined rows score 0; a one-word statement scores 100 and is dropped by the 20-word filter |
+| [`tests/test_models.py`](tests/test_models.py) | Model train / predict / evaluate | `apology_rate ~ prior_crime` and `religion_rate ~ prior_crime` recover a known shift; p-values and `nobs`; demographic OLS includes Age, education, and race dummies; Other / missing rows are dropped; a one-word outlier does not drive the length-filtered model |
 | [`tests/test_visualization.py`](tests/test_visualization.py) | Visualization | Boxplots, word clouds, heatmap, and lollipop figures write real PNG files |
 | [`tests/test_system.py`](tests/test_system.py) | Full pipeline | One integration test: load the real CSV → score themes → fit both model sets → write plots. Asserts 545 rows, 114 declined, 509 labeled, 479 demographic rows, fitted OLS objects, and non-empty figures |
 
@@ -86,18 +86,73 @@ The system test is the one that has to keep working if someone changes load, sco
 
 ### Continuous integration
 
-[`.github/workflows/test.yml`](.github/workflows/test.yml) runs on every push, pull request, and manual dispatch:
+[`.github/workflows/test.yml`](.github/workflows/test.yml) runs on every push, pull request, manual dispatch, and every Monday at 12:00 UTC.
+
+**Lint** (Python 3.12): install [`requirements-dev.txt`](requirements-dev.txt), then `black --check` and `flake8` on `analysis.py`, `visuals.py`, `question1.py`, and `tests/`.
+
+**Test** (matrix of Python 3.12 and 3.13):
 
 1. Check out the repo
-2. Set up Python 3.12
+2. Set up that Python version
 3. `make install` (`pip install -r requirements.txt`)
 4. `make test` with `MPLBACKEND=Agg` so plots do not need a display
+
+Locally, `make lint` is the same formatting and lint check, and `make format` rewrites the files with Black.
 
 Status badge at the top of this file: [![Python tests](https://github.com/alissarivero/week-2-mini-assignment/actions/workflows/test.yml/badge.svg)](https://github.com/alissarivero/week-2-mini-assignment/actions/workflows/test.yml)
 
 ### Passing run
 
 ![pytest: 23 passed](docs/tests-pass.png)
+
+That screenshot is the earlier 23-test run. The suite is 26 tests now. The container run below is the current one.
+
+## Docker
+
+The image runs the test suite. It starts from `python:3.12-slim`, installs [`requirements.txt`](requirements.txt), copies the project (including the CSV), and sets `MPLBACKEND=Agg` so plots do not need a display.
+
+```bash
+docker build -t last-statements .
+docker run --rm last-statements
+```
+
+`docker build` makes the image. `docker run --rm` starts a container, runs pytest, and deletes the container when it exits. `docker images` lists what is on the machine, and `docker ps -a` shows containers that have already stopped.
+
+On this Mac I used Colima, because Docker Desktop was not installed. The build and run commands are the same.
+
+The Dockerfile is a short recipe: each instruction is a layer. The CSV has to be copied into the image, or the tests cannot find the file.
+
+The run screenshot names the container so `docker ps -a` still lists it after pytest exits with status 0. `docker run --rm` runs the same tests and then deletes the container.
+
+![Docker image build](docs/docker-build.png)
+
+![Tests inside the container](docs/docker-run.png)
+
+## Refactoring
+
+`add_text_scores` used to compute the four theme rates with four copies of the same division. Those copies now go through `hits_per_hundred`, and the word lists sit in one `THEMES` registry. `plot_prior_crime` and `plot_themes` both drew a boxplot plus a strip plot with the same styling. That shared drawing is `_draw_grouped_boxes`.
+
+A scoring or styling fix should happen in one place. The public names (`REMORSE_EXACT` and the others) are unchanged, so the existing tests still import them.
+
+I checked this with `python -m pytest` (26 passed) and with `black` / `flake8` on the project Python files.
+
+The commit is [`79b0a94`](https://github.com/alissarivero/week-2-mini-assignment/commit/79b0a94):
+
+![Refactoring diff on GitHub](docs/refactor-diff.png)
+
+## Missing values and outliers
+
+| What is wrong | What the analysis does |
+|---|---|
+| `PreviousCrime` is NA (36 rows) | Dropped from the prior-crime groups and from every OLS model |
+| Declined or blank statement (114 rows) | Scored as 0 words and 0 on every theme, and kept in the primary models. 102 of the 509 labeled rows are declined |
+| `EducationLevel` is not numeric (45 rows; 28 of the labeled rows) | Dropped only from the demographic models |
+| Race is `Other` (2 rows) | Dropped only from the demographic models, with White / Black / Hispanic kept |
+| Age | No missing values in this file |
+| Spoken statement shorter than 20 words (54 rows) | Kept in the primary models. One keyword in a two-word line is 50 hits per 100 words. The boxplots turn boxplot fliers off (`fliersize=0`) and still draw every point as a strip |
+| Very long statements | The longest spoken statement is 1,267 words. Rates are per 100 words, so a long statement does not add hits just by being long |
+
+The primary models answer the original questions with every labeled row included. A second fit, below, asks whether those answers depend on the zeros and the short statements.
 
 ## What the Python analysis does
 
@@ -113,6 +168,7 @@ Status badge at the top of this file: [![Python tests](https://github.com/alissa
 6. Fit the two original OLS models with prior crime as the predictor (`1` = prior record, `0` = none):
    - `apology_rate ~ prior_crime`
    - `religion_rate ~ prior_crime`
+   - then refit both on spoken statements of at least 20 words (declined rows and shorter statements dropped)
 7. Fit four demographic OLS models (`theme ~ prior_crime + Age + EducationLevel + Race`, White as the reference):
    - `remorse_rate`, `gratitude_love_rate`, `family_rate`, `religion_rate`
 8. Plot apology vs religion by prior record, and the four themes by race.
@@ -122,9 +178,10 @@ Status badge at the top of this file: [![Python tests](https://github.com/alissa
 
 - **Apology / remorse ~ prior crime:** no difference (about 1.07 vs 1.06 hits per 100 words). The prior-crime coefficient is −0.003 (p = 0.99, R² ≈ 0). The confidence interval crosses zero.
 - **Religion ~ prior crime:** people with a prior record are about **0.50 words per 100 higher** (1.45 vs 1.95). That is only suggestive (p = 0.072, R² = 0.006) and the confidence interval crosses zero.
+- **Same models, longer statements only (n = 359):** declined rows and statements under 20 words are out. Apology is still flat (1.50 vs 1.33, coefficient −0.17, p = 0.39). Religion is still a bit higher with a prior record (1.86 vs 2.25, coefficient 0.39) but the p-value moves from 0.072 to 0.20, and the confidence interval still crosses zero. The weak religion result in the full sample was leaning on the zeros and the short statements.
 - **Themes:** last words are mostly **gratitude/love** and **family**, then religion and remorse. *Ask* and *tell* are not included.
 - **Demographics (n = 479):** Hispanic speakers use more gratitude/love (+1.29 per 100, p = 0.009) and more religious language (+0.95, p = 0.025) than White speakers. Black speakers use less remorse language (−0.45, p = 0.022). Family language is common in every group and is not predicted by race, age, education, or prior crime. All four demographic models have small R² (0.014–0.029).
-- **Takeaway:** a prior criminal record does not change remorse language and only weakly tracks religion. Race is the demographic that shows up, and even then it explains little of the theme rates. That is not a claim about guilt, faith, or who “should” apologize.
+- **Takeaway:** a prior criminal record does not change remorse language. The religion difference is small, and it does not hold up once declined statements and very short statements are set aside. Race is the demographic that shows up, and even then it explains little of the theme rates. That is not a claim about guilt, faith, or who “should” apologize.
 - **Polars:** the same load → keyword-rate → group-mean pipeline was about **11× faster** in Polars than in Pandas on this table (~10 ms vs ~114 ms). Polars uses a word-boundary regex over the same lists, so group means can differ slightly from the Python tokenizer.
 
 ## Visualizations
@@ -166,10 +223,13 @@ Status badge at the top of this file: [![Python tests](https://github.com/alissa
 | `question1.ipynb` | Same analysis as a notebook, plus the Polars timing |
 | `question2.ipynb` | Same analysis in Rust, plus ownership experiments (required) |
 | `tests/` | Unit tests plus one system test |
-| `.github/workflows/test.yml` | GitHub Actions CI |
-| `requirements.txt` / `Makefile` | Install and `make test` |
+| `.github/workflows/test.yml` | GitHub Actions CI (lint, plus tests on Python 3.12 and 3.13) |
+| `requirements.txt` / `requirements-dev.txt` / `Makefile` | Install, `make test`, `make lint`, `make format` |
+| `Dockerfile` / `.dockerignore` | Image that runs the test suite |
 | `README.md` | This file (required) |
 | `docs/tests-pass.png` | Screenshot of the passing test run |
+| `docs/refactor-diff.png` | GitHub diff for the shared scoring and plot helpers |
+| `docs/docker-build.png` / `docs/docker-run.png` | Image build and container test run |
 | `Texas Last Statement - CSV.csv` | Last-statement table used in the analysis |
 | `Texas Last Statement - Excel.xlsx` | Same table (not used) |
 | `apology_religion.png` | Prior-crime figure written by `question1.py` |

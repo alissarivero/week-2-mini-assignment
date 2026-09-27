@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from analysis import (
+    fit_length_sensitivity,
     fit_prior_models,
     fit_theme_models,
     prepare_demographic_frame,
@@ -100,3 +101,20 @@ def test_prepare_demographic_frame_drops_other_race_and_missing():
     demo = prepare_demographic_frame(raw)
     assert len(demo) == 2
     assert set(demo["Race"]) == {"White", "Hispanic"}
+
+
+def test_length_sensitivity_is_not_driven_by_a_one_word_outlier():
+    model_df = pd.DataFrame(
+        {
+            "prior_crime": [0, 0, 0, 1, 1, 1],
+            "apology_rate": [2.0, 2.0, 2.0, 2.0, 2.0, 100.0],
+            "religion_rate": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+            "word_count": [50, 50, 50, 50, 50, 1],
+            "declined": [False, False, False, False, False, False],
+        }
+    )
+    full = fit_prior_models(model_df)
+    filtered, subset = fit_length_sensitivity(model_df, min_words=20)
+    assert full["apology"].params["prior_crime"] > 5
+    assert filtered["apology"].params["prior_crime"] == pytest.approx(0.0)
+    assert len(subset) == 5
