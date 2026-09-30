@@ -92,6 +92,8 @@ docker pull ghcr.io/alissarivero/week-2-mini-assignment:latest
 docker run --rm ghcr.io/alissarivero/week-2-mini-assignment:latest
 ```
 
+![Published image on GitHub Container Registry](docs/docker-ghcr.png)
+
 ![Docker image build](docs/docker-build.png)
 
 ![Tests inside the container](docs/docker-run.png)
