@@ -85,6 +85,13 @@ docker run --rm last-statements
 
 `docker run --rm` runs pytest and deletes the container. The screenshot names the container so `docker ps -a` still shows **Exited (0)**.
 
+The same image is on GitHub Container Registry. [`.github/workflows/docker.yml`](.github/workflows/docker.yml) builds and pushes it on every push to `main`.
+
+```bash
+docker pull ghcr.io/alissarivero/week-2-mini-assignment:latest
+docker run --rm ghcr.io/alissarivero/week-2-mini-assignment:latest
+```
+
 ![Docker image build](docs/docker-build.png)
 
 ![Tests inside the container](docs/docker-run.png)
