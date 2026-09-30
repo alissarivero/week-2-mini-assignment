@@ -4,6 +4,17 @@
 
 Alissa Rivero
 
+## Refactoring Slogan
+If it ain't broke, refactor it anyway
+
+## Setup
+
+```bash
+python -m pip install -r requirements.txt
+python question1.py
+make test
+```
+
 ## Problem
 
 Texas publishes the last statements of people it executes, along with age, race, education, and whether the person had a prior criminal record. Three questions:
@@ -35,12 +46,6 @@ The primary models keep every labeled row. A second fit drops declined rows and 
 3. Fit `apology_rate ~ prior_crime` and `religion_rate ~ prior_crime`, then refit both on spoken statements of at least 20 words.
 4. Fit each theme on prior crime, age, education, and race (White as the reference).
 5. Plot the rates and time the same pipeline in Pandas and Polars.
-
-```bash
-python -m pip install -r requirements.txt
-python question1.py
-make test
-```
 
 ## Results
 
